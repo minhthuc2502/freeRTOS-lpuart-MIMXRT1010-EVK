@@ -1,0 +1,16 @@
+---
+BasedOnStyle: Google
+Standard: Cpp11
+
+AccessModifierOffset: -4
+AllowShortFunctionsOnASingleLine: Inline
+BinPackArguments: false
+BinPackParameters: false
+BreakBeforeBraces: Linux
+ColumnLimit: 120
+IndentWidth: 4
+MaxEmptyLinesToKeep: 1
+NamespaceIndentation: Inner
+PointerAlignment: Left
+DerivePointerAlignment: false
+SpaceBeforeParens: Never

@@ -1,5 +1,10 @@
 # freeRTOS-lpuart-MIMXRT1010-EVK
 Project aims to control robotic arm Lynxmotion AL5D by board developement MIMXRT1010-EVK. This board connect to USB Servo Controller by UART.
+In this case, i used uart1 for the communication between board and robotic arm. Direct serial connection:
+- TX from MIMXRT1010-EVK to RX on the SSC-32U
+- RX from MIMXRT1010-EVK to TX on the SSC-32U
+- GND on MIMXRT1010-EVK to GND on the SSC-32U
+After flashing code on your USB Servo controller, press button SW4 on board MIMXRT1010-EVK to control arm with mode 1 and and press 2 consecutive times to set mode 2. 
 
 ## Requirement
 - [MIMXRT1010-EVK](https://www.nxp.com/design/development-boards/i-mx-evaluation-and-development-boards/i-mx-rt1010-evaluation-kit:MIMXRT1010-EVK)
