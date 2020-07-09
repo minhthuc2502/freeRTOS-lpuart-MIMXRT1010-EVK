@@ -74,29 +74,25 @@ EventGroupHandle_t EventGroup_Button;
 /*******************************************************************************
  * Code
  ******************************************************************************/
-const char *positionInit = {
+const char positionInit[] = {
     "#0P1450S500#1P1600S500#2P1800S500#3P1500S500#4P1550S500#5P1450S500\r\n"};
 const char *mode1[] = {"#2P1450S1000\r\n",
                        "#0P700S1000\r\n",
                        "#4P600S1000#3P750S1000#1P1300S1000\r\n",
                        "#4P2000S1000\r\n",
                        "#1P1400S1000\r\n",
-                       "#5P2350S100\r\n",
-                       "#5P600S1000#0P1450S1000\r\n",
-                       "#5P1350S1000\r\n",
-                       "#4P600S10000\r\n",
-                       "#3P1450S1000#1P2000S1000#2P2000S1000\r\n"
-};
-const char *mode2[] = {"#2P1450S1000\r\n",
-                       "#0P700S1000\r\n",
-                       "#4P600S1000#3P750S1000#1P1300S1000\r\n",
-                       "#4P2000S1000\r\n",
-                       "#1P1400S1000\r\n",
-                       "#5P2350S100\r\n",
+                       "#5P2350S1000\r\n",
                        "#5P600S1000#0P1450S1000\r\n",
                        "#5P1350S1000\r\n",
                        "#4P600S10000\r\n",
                        "#3P1450S1000#1P2000S1000#2P2000S1000\r\n"};
+const char *mode2[] = {"#1P1400S1000#2P1650S1000#3P1250S1000#4P600S1000\r\n",
+                       "#4P2000S1000\r\n",
+                       "#1P1600S1000#2P1800S1000#3P1500S1000",
+                       "#0P600S1000\r\n",
+                       "#3P950S1000#5P2200S1000\r\n",
+                       "#4P600S1000\r\n",
+                       positionInit};
 typedef struct scenario_buffer {
   char **data_to_send;
   uint8_t size;
@@ -213,7 +209,7 @@ static void uart_task(void *pvParameters) {
         if (kStatus_Success != error) {
           break;
         }
-        delay(150000000);
+        delay(100000000);
         for (unsigned int i = 0; i < buf_mode.size; i++) {
           buffer = buf_mode.data_to_send[i];
           /* Send introduction message. */
@@ -221,7 +217,7 @@ static void uart_task(void *pvParameters) {
           if (kStatus_Success != error) {
             break;
           }
-          delay(150000000);
+          delay(100000000);
         }
         freeBuffer();
         xSemaphoreGive(cmdMutex);
