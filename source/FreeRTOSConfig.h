@@ -1,6 +1,6 @@
 /*
- * FreeRTOS Kernel V10.2.0
- * Copyright (C) 2019 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+ * FreeRTOS Kernel V10.0.1
+ * Copyright (C) 2017 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -19,10 +19,8 @@
  * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
- * http://www.FreeRTOS.org
  * http://aws.amazon.com/freertos
- *
- * 1 tab == 4 spaces!
+ * http://www.FreeRTOS.org
  */
 
 #ifndef FREERTOS_CONFIG_H
@@ -58,18 +56,14 @@
 #define configUSE_QUEUE_SETS                    0
 #define configUSE_TIME_SLICING                  0
 #define configUSE_NEWLIB_REENTRANT              0
-#define configENABLE_BACKWARD_COMPATIBILITY     0
+#define configENABLE_BACKWARD_COMPATIBILITY     1
 #define configNUM_THREAD_LOCAL_STORAGE_POINTERS 5
-
-/* Used memory allocation (heap_x.c) */
-#define configFRTOS_MEMORY_SCHEME               4
-/* Tasks.c additions (e.g. Thread Aware Debug capability) */
-#define configINCLUDE_FREERTOS_TASK_C_ADDITIONS_H 1
+#define configUSE_APPLICATION_TASK_TAG          0
 
 /* Memory allocation related definitions. */
 #define configSUPPORT_STATIC_ALLOCATION         0
 #define configSUPPORT_DYNAMIC_ALLOCATION        1
-#define configTOTAL_HEAP_SIZE                   ((size_t)(10 * 1024))
+#define configTOTAL_HEAP_SIZE                   ((size_t)(10240))
 #define configAPPLICATION_ALLOCATED_HEAP        0
 
 /* Hook function related definitions. */
@@ -83,9 +77,6 @@
 #define configGENERATE_RUN_TIME_STATS           0
 #define configUSE_TRACE_FACILITY                1
 #define configUSE_STATS_FORMATTING_FUNCTIONS    0
-
-/* Task aware debugging. */
-#define configRECORD_STACK_HIGH_ADDRESS         1
 
 /* Co-routine related definitions. */
 #define configUSE_CO_ROUTINES                   0
@@ -117,8 +108,6 @@
 #define INCLUDE_xTaskGetHandle                  0
 #define INCLUDE_xTaskResumeFromISR              1
 
-
-/* Interrupt nesting behaviour configuration. Cortex-M specific. */
 #ifdef __NVIC_PRIO_BITS
 /* __BVIC_PRIO_BITS will be specified when CMSIS is being used. */
 #define configPRIO_BITS __NVIC_PRIO_BITS

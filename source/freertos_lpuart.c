@@ -1,11 +1,3 @@
-/*
- * Copyright (c) 2015, Freescale Semiconductor, Inc.
- * Copyright 2016-2017 NXP
- * All rights reserved.
- *
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 /* FreeRTOS kernel includes. */
 #include "FreeRTOS.h"
 #include "queue.h"
