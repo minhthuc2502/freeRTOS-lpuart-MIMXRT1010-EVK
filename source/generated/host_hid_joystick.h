@@ -4,9 +4,9 @@
 /*******************************************************************************
  * Definitions
  ******************************************************************************/
-/*! @brief buffer for receiving report descriptor and data */
+/*! @brief size of buffer for receiving report descriptor and data */
 #define HID_IN_BUFFER_SIZE 100U
-/*! @brief buffer for sending data */
+/*! @brief size of buffer for sending data */
 #define HID_OUT_BUFFER_SIZE 8U
 /*! @brief host app run status */
 typedef enum usb_host_hid_run_state
@@ -48,7 +48,7 @@ typedef struct  usb_host_hid_joystick_instance
 void usb_host_joystick_task(void *param);
 
 /*! @brief This function handle the event attach/dettach. With a defined event, this function can allocate or free ressources */
-void usb_host_joystick_event(usb_device_handle deviceHandle, usb_host_configuration_handle configurationhandle, uint32_t eventcode);
+usb_status_t usb_host_joystick_event(usb_device_handle deviceHandle, usb_host_configuration_handle configurationhandle, uint32_t eventcode);
 
 
 #endif

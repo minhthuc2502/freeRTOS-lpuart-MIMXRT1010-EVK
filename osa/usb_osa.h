@@ -17,7 +17,7 @@
 /*******************************************************************************
  * Definitions
  ******************************************************************************/
-
+#define USB_STACK_FREERTOS (1U)
 /*! @brief Define big endian */
 #define USB_BIG_ENDIAN (0U)
 /*! @brief Define little endian */
