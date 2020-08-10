@@ -21,6 +21,8 @@
 #include "fsl_gpio.h"
 #include "fsl_lpuart.h"
 #include "fsl_lpuart_freertos.h"
+#include "fsl_lpi2c.h"
+#include "fsl_lpi2c_cmsis.h"
 
 #include "clock_config.h"
 #include "pin_mux.h"
@@ -31,8 +33,9 @@
 #define DEMO_LPUART_CLK_FREQ BOARD_DebugConsoleSrcFreq()
 #define DEMO_LPUART_IRQn LPUART1_IRQn
 /* Task priorities. */
-#define uart_task_PRIORITY (configMAX_PRIORITIES - 1)
-#define button_task_PRIORITY (configMAX_PRIORITIES - 2)
+#define uart_task_PRIORITY (configMAX_PRIORITIES - 2)
+#define button_task_PRIORITY (configMAX_PRIORITIES - 3)
+#define i2c_b2b_task_PRIORITY (configMAX_PRIORITIES - 1)
 /* Button definitions */
 #define USER_SW_GPIO BOARD_USER_BUTTON_GPIO
 #define USER_SW_GPIO_PIN BOARD_USER_BUTTON_GPIO_PIN
@@ -48,11 +51,25 @@
 SemaphoreHandle_t cmdMutex = NULL;
 /* Semaphore to protect count pressed */
 SemaphoreHandle_t countSemaphore = NULL;
+
+#define EXAMPLE_I2C_SLAVE Driver_I2C1
+
+/* Select USB1 PLL (480 MHz) as master lpi2c clock source */
+#define LPI2C_CLOCK_SOURCE_SELECT (0U)
+/* Clock divider for master lpi2c clock source */
+#define LPI2C_CLOCK_SOURCE_DIVIDER (5U)
+/* Get frequency of lpi2c clock */
+#define LPI2C_CLOCK_FREQUENCY ((CLOCK_GetFreq(kCLOCK_Usb1PllClk) / 8) / (LPI2C_CLOCK_SOURCE_DIVIDER + 1U))
+
+#define I2C_MASTER_SLAVE_ADDR_7BIT (0x7EU)
+#define I2C_DATA_LENGTH (32) /* MAX is 256 */
 /*******************************************************************************
  * Prototypes
  ******************************************************************************/
 static void uart_task(void *pvParameters);
 static void button_task(void *pvParameters);
+static void i2c_b2b_task(void *pvParameters);
+
 /*!
  * @brief delay a while.
  */
@@ -71,6 +88,10 @@ static unsigned int allocBufferArray();
 volatile bool g_InputSignal = false;
 volatile uint8_t countPressed = 0;
 EventGroupHandle_t EventGroup_Button;
+
+uint8_t g_slave_buff[I2C_DATA_LENGTH];
+volatile bool g_SlaveCompletionFlag = false;
+
 /*******************************************************************************
  * Code
  ******************************************************************************/
@@ -117,6 +138,26 @@ gpio_pin_config_t pin_gpio_button_config = {
     .outputLogic = 0,
     .interruptMode = kGPIO_IntRisingEdge,
 };
+
+uint32_t LPI2C1_GetFreq(void)
+{
+    return LPI2C_CLOCK_FREQUENCY;
+}
+
+static void lpi2c_slave_callback(uint32_t event)
+{
+    switch (event)
+    {
+        /* The master has sent a stop transition on the bus */
+        case ARM_I2C_EVENT_TRANSFER_DONE:
+            g_SlaveCompletionFlag = true;
+            break;
+
+        default:
+            break;
+    }
+}
+
 /*!
  * @brief Interrupt service function of switch.
  */
@@ -175,6 +216,12 @@ int main(void) {
   }
   if (xTaskCreate(button_task, "Button_task", configMINIMAL_STACK_SIZE + 50,
                   NULL, button_task_PRIORITY, NULL) != pdPASS) {
+    PRINTF("Task creation failed!\r\n");
+    while (1)
+      ;
+  }
+  if (xTaskCreate(i2c_b2b_task, "i2c_b2b_task", configMINIMAL_STACK_SIZE + 10, NULL,
+		  	  	  i2c_b2b_task_PRIORITY, NULL) != pdPASS) {
     PRINTF("Task creation failed!\r\n");
     while (1)
       ;
@@ -278,6 +325,58 @@ static void button_task(void *pvParameters) {
       g_InputSignal = false;
     }
   }
+}
+
+static void i2c_b2b_task(void *pvParameters) {
+    /*Clock setting for LPI2C*/
+    CLOCK_SetMux(kCLOCK_Lpi2cMux, LPI2C_CLOCK_SOURCE_SELECT);
+    CLOCK_SetDiv(kCLOCK_Lpi2cDiv, LPI2C_CLOCK_SOURCE_DIVIDER);
+
+    /* Initialize the LPI2C slave peripheral */
+    EXAMPLE_I2C_SLAVE.Initialize(lpi2c_slave_callback);
+    EXAMPLE_I2C_SLAVE.PowerControl(ARM_POWER_FULL);
+
+    /* Change the slave address */
+    EXAMPLE_I2C_SLAVE.Control(ARM_I2C_OWN_ADDRESS, I2C_MASTER_SLAVE_ADDR_7BIT);
+
+    memset(g_slave_buff, 0, sizeof(g_slave_buff));
+
+    /* Start accepting I2C transfers on the LPI2C slave peripheral */
+    EXAMPLE_I2C_SLAVE.SlaveReceive(g_slave_buff, I2C_DATA_LENGTH);
+
+    /*  Wait for transfer completed. */
+    while (!g_SlaveCompletionFlag)
+    {
+    }
+
+    /*  Reset slave completion flag to false. */
+    g_SlaveCompletionFlag = false;
+
+    /* Start transmitting I2C transfers on the LPI2C slave peripheral */
+    EXAMPLE_I2C_SLAVE.SlaveTransmit(g_slave_buff, I2C_DATA_LENGTH);
+
+    /* Wait for master receive completed.*/
+
+    PRINTF("Slave received data :");
+    for (uint32_t i = 0U; i < I2C_DATA_LENGTH; i++)
+    {
+        if (i % 8 == 0)
+        {
+            PRINTF("\r\n");
+        }
+        PRINTF("0x%2x  ", g_slave_buff[i]);
+    }
+    PRINTF("\r\n\r\n");
+
+    while (!g_SlaveCompletionFlag)
+    {
+    }
+    g_SlaveCompletionFlag = false;
+
+    PRINTF("\r\nEnd of LPI2C example .\r\n");
+    while (1)
+    {
+    }
 }
 
 static void delay(uint32_t time) {

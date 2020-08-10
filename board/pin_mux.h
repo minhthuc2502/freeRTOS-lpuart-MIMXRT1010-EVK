@@ -57,6 +57,30 @@ void BOARD_InitBootPins(void);
  */
 void BOARD_InitPins(void);
 
+
+/*!
+ * @brief Configures pin routing and optionally pin electrical features.
+ *
+ */
+void LPI2C1_InitPins(void);
+
+/* GPIO_02 (number 11), I2C1_SCL/U10[17]/J57[20]/U26[4] */
+#define LPI2C1_DEINITPINS_I2C1_SCL_PERIPHERAL                              GPIO1   /*!< Device name: GPIO1 */
+#define LPI2C1_DEINITPINS_I2C1_SCL_SIGNAL                             gpiomux_io   /*!< GPIO1 signal: gpiomux_io */
+#define LPI2C1_DEINITPINS_I2C1_SCL_CHANNEL                                    2U   /*!< GPIO1 gpiomux_io channel: 02 */
+
+/* GPIO_01 (number 12), I2C1_SDA/U10[18]/J57[18]/U26[6] */
+#define LPI2C1_DEINITPINS_I2C1_SDA_PERIPHERAL                              GPIO1   /*!< Device name: GPIO1 */
+#define LPI2C1_DEINITPINS_I2C1_SDA_SIGNAL                             gpiomux_io   /*!< GPIO1 signal: gpiomux_io */
+#define LPI2C1_DEINITPINS_I2C1_SDA_CHANNEL                                    1U   /*!< GPIO1 gpiomux_io channel: 01 */
+
+
+/*!
+ * @brief Configures pin routing and optionally pin electrical features.
+ *
+ */
+void LPI2C1_DeinitPins(void);
+
 #if defined(__cplusplus)
 }
 #endif
