@@ -34,8 +34,10 @@
 #define DEMO_LPUART_IRQn LPUART1_IRQn
 /* Task priorities. */
 #define uart_task_PRIORITY (configMAX_PRIORITIES - 2)
-#define button_task_PRIORITY (configMAX_PRIORITIES - 3)
+#define button_task_PRIORITY (configMAX_PRIORITIES - 1)
 #define i2c_b2b_task_PRIORITY (configMAX_PRIORITIES - 1)
+#define BTN_CYCLE_RATE_MS       20
+#define I2C_CYCLE_RATE_MS       20
 /* Button definitions */
 #define USER_SW_GPIO BOARD_USER_BUTTON_GPIO
 #define USER_SW_GPIO_PIN BOARD_USER_BUTTON_GPIO_PIN
@@ -62,24 +64,31 @@ SemaphoreHandle_t countSemaphore = NULL;
 #define LPI2C_CLOCK_FREQUENCY ((CLOCK_GetFreq(kCLOCK_Usb1PllClk) / 8) / (LPI2C_CLOCK_SOURCE_DIVIDER + 1U))
 
 #define I2C_MASTER_SLAVE_ADDR_7BIT (0x7EU)
-#define I2C_DATA_LENGTH (32) /* MAX is 256 */
+#define I2C_DATA_LENGTH (200) /* MAX is 256 */
 /*******************************************************************************
  * Prototypes
  ******************************************************************************/
 static void uart_task(void *pvParameters);
 static void button_task(void *pvParameters);
 static void i2c_b2b_task(void *pvParameters);
-
 /*!
  * @brief delay a while.
  */
-static void delay(uint32_t time);
+static void delay(void);
 /*!
  * @brief copy data in mode to buffer transferred
  */
 static unsigned int copyBuffer(char *data, char **des);
 static void freeBuffer(void);
 static unsigned int allocBufferArray();
+/*!
+ * @brief initialize i2c slave
+ */
+void initI2C_b2b(void);
+/*!
+ * @brief analyze data received by i2c from master
+ */
+static void receiveDataI2C_b2b(void);
 
 /*******************************************************************************
  * Variables
@@ -152,7 +161,6 @@ static void lpi2c_slave_callback(uint32_t event)
         case ARM_I2C_EVENT_TRANSFER_DONE:
             g_SlaveCompletionFlag = true;
             break;
-
         default:
             break;
     }
@@ -220,7 +228,7 @@ int main(void) {
     while (1)
       ;
   }
-  if (xTaskCreate(i2c_b2b_task, "i2c_b2b_task", configMINIMAL_STACK_SIZE + 10, NULL,
+  if (xTaskCreate(i2c_b2b_task, "i2c_b2b_task", configMINIMAL_STACK_SIZE + 50, NULL,
 		  	  	  i2c_b2b_task_PRIORITY, NULL) != pdPASS) {
     PRINTF("Task creation failed!\r\n");
     while (1)
@@ -256,7 +264,7 @@ static void uart_task(void *pvParameters) {
         if (kStatus_Success != error) {
           break;
         }
-        delay(100000000);
+        delay();
         for (unsigned int i = 0; i < buf_mode.size; i++) {
           buffer = buf_mode.data_to_send[i];
           /* Send introduction message. */
@@ -264,7 +272,7 @@ static void uart_task(void *pvParameters) {
           if (kStatus_Success != error) {
             break;
           }
-          delay(100000000);
+          delay();
         }
         freeBuffer();
         xSemaphoreGive(cmdMutex);
@@ -280,9 +288,12 @@ static void uart_task(void *pvParameters) {
 
 static void button_task(void *pvParameters) {
   uint8_t tmp;
+  TickType_t xLastWakeTime;
+  xLastWakeTime = xTaskGetTickCount();
   while (1) {
+	vTaskDelayUntil( &xLastWakeTime, BTN_CYCLE_RATE_MS );
     if (g_InputSignal) {
-      delay(100000000);
+      delay();
       if (GPIO_PinRead(USER_SW_GPIO, USER_SW_GPIO_PIN) == 1) {
         tmp = countPressed;
         countPressed = 0;
@@ -291,6 +302,7 @@ static void button_task(void *pvParameters) {
           case 1:
             /* The semaphore was ‘taken’ successfully, so the resource it is
             guarding can be accessed safely. */
+        	PRINTF("Mode 1");
             buf_mode.size = (uint8_t)sizeof(mode1) / sizeof(mode1[0]);
             allocBufferArray(&buf_mode.data_to_send);
             for (unsigned int i = 0; i < buf_mode.size; i++) {
@@ -303,6 +315,7 @@ static void button_task(void *pvParameters) {
             xEventGroupSetBits(EventGroup_Button, MODE_0);
             break;
           case 2:
+        	PRINTF("Mode 2");
             /* The semaphore was ‘taken’ successfully, so the resource it is
             guarding can be accessed safely. */
             buf_mode.size = (uint8_t)sizeof(mode2) / sizeof(mode2[0]);
@@ -324,64 +337,27 @@ static void button_task(void *pvParameters) {
       }
       g_InputSignal = false;
     }
+    // pass state running to the task which has the same priority
+    taskYIELD();
   }
 }
 
 static void i2c_b2b_task(void *pvParameters) {
-    /*Clock setting for LPI2C*/
-    CLOCK_SetMux(kCLOCK_Lpi2cMux, LPI2C_CLOCK_SOURCE_SELECT);
-    CLOCK_SetDiv(kCLOCK_Lpi2cDiv, LPI2C_CLOCK_SOURCE_DIVIDER);
-
-    /* Initialize the LPI2C slave peripheral */
-    EXAMPLE_I2C_SLAVE.Initialize(lpi2c_slave_callback);
-    EXAMPLE_I2C_SLAVE.PowerControl(ARM_POWER_FULL);
-
-    /* Change the slave address */
-    EXAMPLE_I2C_SLAVE.Control(ARM_I2C_OWN_ADDRESS, I2C_MASTER_SLAVE_ADDR_7BIT);
-
-    memset(g_slave_buff, 0, sizeof(g_slave_buff));
-
-    /* Start accepting I2C transfers on the LPI2C slave peripheral */
-    EXAMPLE_I2C_SLAVE.SlaveReceive(g_slave_buff, I2C_DATA_LENGTH);
-
-    /*  Wait for transfer completed. */
-    while (!g_SlaveCompletionFlag)
-    {
-    }
-
-    /*  Reset slave completion flag to false. */
-    g_SlaveCompletionFlag = false;
-
-    /* Start transmitting I2C transfers on the LPI2C slave peripheral */
-    EXAMPLE_I2C_SLAVE.SlaveTransmit(g_slave_buff, I2C_DATA_LENGTH);
-
-    /* Wait for master receive completed.*/
-
-    PRINTF("Slave received data :");
-    for (uint32_t i = 0U; i < I2C_DATA_LENGTH; i++)
-    {
-        if (i % 8 == 0)
-        {
-            PRINTF("\r\n");
-        }
-        PRINTF("0x%2x  ", g_slave_buff[i]);
-    }
-    PRINTF("\r\n\r\n");
-
-    while (!g_SlaveCompletionFlag)
-    {
-    }
-    g_SlaveCompletionFlag = false;
-
-    PRINTF("\r\nEnd of LPI2C example .\r\n");
-    while (1)
-    {
+    initI2C_b2b();
+    TickType_t xLastWakeTime;
+    xLastWakeTime = xTaskGetTickCount();
+    while (1) {
+    	vTaskDelayUntil( &xLastWakeTime, I2C_CYCLE_RATE_MS );
+    	receiveDataI2C_b2b();
+		// pass state running to the task which has the same priority
+		taskYIELD();
     }
 }
 
-static void delay(uint32_t time) {
+static void delay() {
+  uint32_t time = 100000000;
   for (uint32_t i = 0; i < time; ++i) {
-    __NOP(); /* delay */
+	  continue;
   }
 }
 
@@ -405,7 +381,7 @@ static unsigned int copyBuffer(char *data, char **des) {
 }
 
 static void freeBuffer(void) {
-  if (buf_mode.data_to_send != NULL) {
+	if (buf_mode.data_to_send != NULL) {
     for (unsigned int i = 0; i < buf_mode.size; i++) {
       free(buf_mode.data_to_send[i]);
       buf_mode.data_to_send[i] = NULL;
@@ -413,4 +389,80 @@ static void freeBuffer(void) {
     free(buf_mode.data_to_send);
     buf_mode.data_to_send = NULL;
   }
+buf_mode.size = 0;
+}
+
+void initI2C_b2b(void) {
+	/*Clock setting for LPI2C*/
+	CLOCK_SetMux(kCLOCK_Lpi2cMux, LPI2C_CLOCK_SOURCE_SELECT);
+	CLOCK_SetDiv(kCLOCK_Lpi2cDiv, LPI2C_CLOCK_SOURCE_DIVIDER);
+
+	/* Initialize the LPI2C slave peripheral */
+	EXAMPLE_I2C_SLAVE.Initialize(lpi2c_slave_callback);
+	EXAMPLE_I2C_SLAVE.PowerControl(ARM_POWER_FULL);
+
+	/* Change the slave address */
+	EXAMPLE_I2C_SLAVE.Control(ARM_I2C_OWN_ADDRESS, I2C_MASTER_SLAVE_ADDR_7BIT);
+}
+
+uint32_t FindIndex(char* str, char c)
+{
+    char* ptr;
+    uint32_t index;
+
+    ptr = strchr(str, c);
+    if (ptr == NULL)
+    {
+        return -1;
+    }
+
+    index = ptr - str;
+    return index;
+}
+
+void receiveDataI2C_b2b(void) {
+	char* tempData;
+	char cr = '\r';
+	uint32_t currentIndex = 0, indexBuf = 0;
+	if (!g_SlaveCompletionFlag)
+			memset(g_slave_buff, 0, I2C_DATA_LENGTH);
+	/* Start accepting I2C transfers on the LPI2C slave peripheral */
+	EXAMPLE_I2C_SLAVE.SlaveReceive(g_slave_buff, I2C_DATA_LENGTH);
+	if (g_SlaveCompletionFlag) {
+		if (xSemaphoreTake(cmdMutex, 0) == pdPASS) {
+			tempData = (char*)g_slave_buff;
+			for (;;) {
+				// Count number of chain request
+				if ((currentIndex = FindIndex(tempData, '\r')) < I2C_DATA_LENGTH) {
+					buf_mode.size ++;
+					tempData += currentIndex + 1;
+				}
+				else {
+					break;
+				}
+			}
+			currentIndex = 0;
+			indexBuf = 0;
+			allocBufferArray();
+			tempData = (char*)g_slave_buff;
+			// Copy each chain request in buffer of slave i2c to buffer of command arm
+			for (; indexBuf <= buf_mode.size; indexBuf++) {
+				if ((currentIndex = FindIndex(tempData, '\r')) < I2C_DATA_LENGTH) {
+					buf_mode.data_to_send[indexBuf] = malloc((currentIndex + 1) * sizeof(char));
+					memset(buf_mode.data_to_send[indexBuf], 0, currentIndex + 1);
+					strncpy(buf_mode.data_to_send[indexBuf], tempData, currentIndex);
+					strncat(buf_mode.data_to_send[indexBuf], &cr, 1);
+					tempData += currentIndex + 1;
+					//PRINTF("%s\n", buf_mode.data_to_send[indexBuf]);
+				}
+				else {
+					break;
+				}
+			}
+		}
+		xSemaphoreGive(cmdMutex);
+        /* Notify on event group */
+        xEventGroupSetBits(EventGroup_Button, MODE_1);
+		g_SlaveCompletionFlag = false;
+	}
 }

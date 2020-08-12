@@ -320,7 +320,7 @@
             <component name="system" uuid="52695c75-5661-4c40-adf6-83cae09779ff" type_id="system_54b53072540eeeb8f8e9343e71f28176">
                <config_set_global name="global_system_definitions"/>
             </component>
-            <component name="msg" uuid="daeb38b4-b7ea-48b8-a29a-23361b16fb23" type_id="msg_6e2baaf3b97dbeef01c0043275f9a0e7">
+            <component name="msg" uuid="eda7780b-4bf7-41ee-b7fd-9e8380808465" type_id="msg_6e2baaf3b97dbeef01c0043275f9a0e7">
                <config_set_global name="global_messages"/>
             </component>
          </components>
