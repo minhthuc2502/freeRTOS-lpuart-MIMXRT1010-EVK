@@ -64,7 +64,7 @@ SemaphoreHandle_t countSemaphore = NULL;
 #define LPI2C_CLOCK_FREQUENCY ((CLOCK_GetFreq(kCLOCK_Usb1PllClk) / 8) / (LPI2C_CLOCK_SOURCE_DIVIDER + 1U))
 
 #define I2C_MASTER_SLAVE_ADDR_7BIT (0x7EU)
-#define I2C_DATA_LENGTH (200) /* MAX is 256 */
+#define I2C_DATA_LENGTH (220) /* MAX is 256 */
 /*******************************************************************************
  * Prototypes
  ******************************************************************************/
@@ -364,7 +364,7 @@ static void delay() {
 static unsigned int allocBufferArray() {
   buf_mode.data_to_send = (char **)malloc(buf_mode.size * sizeof(char *));
   if (!buf_mode.data_to_send) {
-    PRINTF("Out of memory");
+    PRINTF("Out of memory\r\n");
     return -1;
   }
   return 0;
@@ -373,7 +373,7 @@ static unsigned int allocBufferArray() {
 static unsigned int copyBuffer(char *data, char **des) {
   *des = (char *)calloc(strlen(data), sizeof(char));
   if (!(*des)) {
-    PRINTF("Out of memory");
+    PRINTF("Out of memory\r\n");
     return -1;
   }
   strcpy(*des, data);
@@ -443,7 +443,8 @@ void receiveDataI2C_b2b(void) {
 			}
 			currentIndex = 0;
 			indexBuf = 0;
-			allocBufferArray();
+			if (buf_mode.size > 0)
+				allocBufferArray();
 			tempData = (char*)g_slave_buff;
 			// Copy each chain request in buffer of slave i2c to buffer of command arm
 			for (; indexBuf <= buf_mode.size; indexBuf++) {
@@ -453,16 +454,17 @@ void receiveDataI2C_b2b(void) {
 					strncpy(buf_mode.data_to_send[indexBuf], tempData, currentIndex);
 					strncat(buf_mode.data_to_send[indexBuf], &cr, 1);
 					tempData += currentIndex + 1;
-					//PRINTF("%s\n", buf_mode.data_to_send[indexBuf]);
+					PRINTF("%s\n", buf_mode.data_to_send[indexBuf]);
 				}
 				else {
 					break;
 				}
 			}
+			xSemaphoreGive(cmdMutex);
 		}
-		xSemaphoreGive(cmdMutex);
         /* Notify on event group */
-        xEventGroupSetBits(EventGroup_Button, MODE_1);
+		if (buf_mode.size > 0)
+			xEventGroupSetBits(EventGroup_Button, MODE_1 | MODE_0);
 		g_SlaveCompletionFlag = false;
 	}
 }
